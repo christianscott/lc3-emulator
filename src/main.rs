@@ -1,7 +1,3 @@
-/// 2^16 locations, each containing one word (16 bits).
-/// Numbered from 0x0000 -> 0xFFFF
-const MEMORY_ADDRESS_SPACE: [u16; 0xFFFF] = [0; 0xFFFF];
-
 enum Opcodes {
     Add = 0b0001,
     And = 0b0101,
@@ -120,7 +116,7 @@ fn sign_extend(n: u16, size: u16) -> u16 {
 }
 
 impl Instruction {
-    fn new(instruction: u16) -> Instruction {
+    fn from(instruction: u16) -> Instruction {
         let opcode = slice_bits(instruction, 15, 12);
         let opcode: Opcodes = unsafe { std::mem::transmute(opcode as u8) };
 
@@ -255,7 +251,7 @@ mod tests {
     #[test]
     fn test_parse_instruction() {
         assert_eq!(
-            Instruction::new(0b0001_100_010_0_00_001),
+            Instruction::from(0b0001_100_010_0_00_001),
             Instruction::Add {
                 dest: 0b100,
                 source_1: 0b010,
@@ -264,7 +260,7 @@ mod tests {
         );
 
         assert_eq!(
-            Instruction::new(0b0001_100_010_1_10001),
+            Instruction::from(0b0001_100_010_1_10001),
             Instruction::AddImmediate {
                 dest: 0b100,
                 source: 0b010,
@@ -273,7 +269,7 @@ mod tests {
         );
 
         assert_eq!(
-            Instruction::new(0b0101_100_010_0_00_001),
+            Instruction::from(0b0101_100_010_0_00_001),
             Instruction::And {
                 dest: 0b100,
                 source_1: 0b010,
@@ -282,7 +278,7 @@ mod tests {
         );
 
         assert_eq!(
-            Instruction::new(0b0101_100_010_1_01001),
+            Instruction::from(0b0101_100_010_1_01001),
             Instruction::AndImmediate {
                 dest: 0b100,
                 source: 0b10,
@@ -291,7 +287,7 @@ mod tests {
         );
 
         assert_eq!(
-            Instruction::new(0b0000_000_000000000),
+            Instruction::from(0b0000_000_000000000),
             Instruction::Br {
                 n: false,
                 z: false,
@@ -301,7 +297,7 @@ mod tests {
         );
 
         assert_eq!(
-            Instruction::new(0b0000_111_000000000),
+            Instruction::from(0b0000_111_000000000),
             Instruction::Br {
                 n: true,
                 z: true,
@@ -311,7 +307,7 @@ mod tests {
         );
 
         assert_eq!(
-            Instruction::new(0b0000_000_000001000),
+            Instruction::from(0b0000_000_000001000),
             Instruction::Br {
                 n: false,
                 z: false,
@@ -321,34 +317,34 @@ mod tests {
         );
 
         assert_eq!(
-            Instruction::new(0b1100_000_010_000000),
+            Instruction::from(0b1100_000_010_000000),
             Instruction::Jmp { base: 0b010 }
         );
 
-        assert_eq!(Instruction::new(0b1100_000_111_000000), Instruction::Ret,);
+        assert_eq!(Instruction::from(0b1100_000_111_000000), Instruction::Ret,);
 
         assert_eq!(
-            Instruction::new(0b0100_1_01000000001),
+            Instruction::from(0b0100_1_01000000001),
             Instruction::Jsr { pc_offset: 0b1000000001 },
         );
 
         assert_eq!(
-            Instruction::new(0b0100_0_00_010_000000),
+            Instruction::from(0b0100_0_00_010_000000),
             Instruction::JsrR { base: 0b010 },
         );
 
         assert_eq!(
-            Instruction::new(0b0010_010_010000001),
+            Instruction::from(0b0010_010_010000001),
             Instruction::Ld { dest: 0b010, pc_offset: 0b10000001 },
         );
 
         assert_eq!(
-            Instruction::new(0b1010_010_010000001),
+            Instruction::from(0b1010_010_010000001),
             Instruction::LdI { dest: 0b010, pc_offset: 0b10000001 },
         );
 
         assert_eq!(
-            Instruction::new(0b0110_010_010_100000),
+            Instruction::from(0b0110_010_010_100000),
             Instruction::LdR {
                 dest: 0b010,
                 base: 0b010,
@@ -357,7 +353,7 @@ mod tests {
         );
 
         assert_eq!(
-            Instruction::new(0b1110_010_010100000),
+            Instruction::from(0b1110_010_010100000),
             Instruction::Lea {
                 dest: 0b010,
                 pc_offset: 0b10100000,
@@ -365,7 +361,7 @@ mod tests {
         );
 
         assert_eq!(
-            Instruction::new(0b1001_010_010_000000),
+            Instruction::from(0b1001_010_010_000000),
             Instruction::Not {
                 dest: 0b010,
                 source: 0b010,
@@ -373,12 +369,12 @@ mod tests {
         );
 
         assert_eq!(
-            Instruction::new(0b1000_000000000000),
+            Instruction::from(0b1000_000000000000),
             Instruction::Rti,
         );
 
         assert_eq!(
-            Instruction::new(0b0011_010_100000000),
+            Instruction::from(0b0011_010_100000000),
             Instruction::St {
                 source: 0b010,
                 pc_offset: 0b1111_1111_0000_0000,
@@ -386,7 +382,7 @@ mod tests {
         );
 
         assert_eq!(
-            Instruction::new(0b1011_010_100000000),
+            Instruction::from(0b1011_010_100000000),
             Instruction::StI {
                 source: 0b010,
                 pc_offset: 0b1111_1111_0000_0000,
@@ -394,7 +390,7 @@ mod tests {
         );
 
         assert_eq!(
-            Instruction::new(0b0111_010_010_100000),
+            Instruction::from(0b0111_010_010_100000),
             Instruction::StR {
                 source: 0b010,
                 base: 0b010,
@@ -403,7 +399,7 @@ mod tests {
         );
 
         assert_eq!(
-            Instruction::new(0b1111_0000_1111_1111),
+            Instruction::from(0b1111_0000_1111_1111),
             Instruction::Trap {
                 vec: 0b1111_1111,
             },
