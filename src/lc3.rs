@@ -1,23 +1,21 @@
-enum Opcodes {
-    Add = 0b0001,
-    And = 0b0101,
-    Br = 0b0000,
-    Jmp = 0b1100,
-    Jsr = 0b0100,
-    Ld = 0b0010,
-    LdI = 0b1010,
-    LdR = 0b0110,
-    Lea = 0b1110,
-    Not = 0b1001,
-    Rti = 0b1000,
-    St = 0b0011,
-    StI = 0b1011,
-    Str = 0b0111,
-    Trap = 0b1111,
-}
+const OPCODE_ADD: u16 = 0b0001;
+const OPCODE_AND: u16 = 0b0101;
+const OPCODE_BR: u16 = 0b0000;
+const OPCODE_JMP: u16 = 0b1100;
+const OPCODE_JSR: u16 = 0b0100;
+const OPCODE_LD: u16 = 0b0010;
+const OPCODE_LDI: u16 = 0b1010;
+const OPCODE_LDR: u16 = 0b0110;
+const OPCODE_LEA: u16 = 0b1110;
+const OPCODE_NOT: u16 = 0b1001;
+const OPCODE_RTI: u16 = 0b1000;
+const OPCODE_ST: u16 = 0b0011;
+const OPCODE_STI: u16 = 0b1011;
+const OPCODE_STR: u16 = 0b0111;
+const OPCODE_TRAP: u16 = 0b1111;
 
 #[derive(Debug, PartialEq)]
-enum Instruction {
+pub enum Instruction {
     Add {
         dest: u16,
         source_1: u16,
@@ -116,12 +114,10 @@ fn sign_extend(n: u16, size: u16) -> u16 {
 }
 
 impl Instruction {
-    fn from(instruction: u16) -> Instruction {
+    pub fn from(instruction: u16) -> Instruction {
         let opcode = slice_bits(instruction, 15, 12);
-        let opcode: Opcodes = unsafe { std::mem::transmute(opcode as u8) };
-
         match opcode {
-            Opcodes::Add => {
+            OPCODE_ADD => {
                 if is_bit_set(instruction, 5) {
                     Instruction::AddImmediate {
                         dest: slice_bits(instruction, 11, 9),
@@ -136,7 +132,7 @@ impl Instruction {
                     }
                 }
             }
-            Opcodes::And => {
+            OPCODE_AND => {
                 if is_bit_set(instruction, 5) {
                     Instruction::AndImmediate {
                         dest: slice_bits(instruction, 11, 9),
@@ -151,13 +147,13 @@ impl Instruction {
                     }
                 }
             }
-            Opcodes::Br => Instruction::Br {
+            OPCODE_BR => Instruction::Br {
                 n: is_bit_set(instruction, 11),
                 z: is_bit_set(instruction, 10),
                 p: is_bit_set(instruction, 9),
                 pc_offset: sign_extend(slice_bits(instruction, 8, 0), 9),
             },
-            Opcodes::Jmp => {
+            OPCODE_JMP => {
                 let base = slice_bits(instruction, 8, 6);
                 if base == 0b111 {
                     Instruction::Ret
@@ -165,7 +161,7 @@ impl Instruction {
                     Instruction::Jmp { base }
                 }
             }
-            Opcodes::Jsr => {
+            OPCODE_JSR => {
                 if is_bit_set(instruction, 11) {
                     Instruction::Jsr {
                         pc_offset: sign_extend(slice_bits(instruction, 10, 0), 11),
@@ -176,42 +172,42 @@ impl Instruction {
                     }
                 }
             }
-            Opcodes::Ld => Instruction::Ld {
+            OPCODE_LD => Instruction::Ld {
                 dest: slice_bits(instruction, 11, 9),
                 pc_offset: sign_extend(slice_bits(instruction, 8, 0), 9),
             },
-            Opcodes::LdI => Instruction::LdI {
+            OPCODE_LDI => Instruction::LdI {
                 dest: slice_bits(instruction, 11, 9),
                 pc_offset: sign_extend(slice_bits(instruction, 8, 0), 9),
             },
-            Opcodes::LdR => Instruction::LdR {
+            OPCODE_LDR => Instruction::LdR {
                 dest: slice_bits(instruction, 11, 9),
                 base: slice_bits(instruction, 8, 6),
                 offset: sign_extend(slice_bits(instruction, 5, 0), 6),
             },
-            Opcodes::Lea => Instruction::Lea {
+            OPCODE_LEA => Instruction::Lea {
                 dest: slice_bits(instruction, 11, 9),
                 pc_offset: sign_extend(slice_bits(instruction, 8, 0), 9),
             },
-            Opcodes::Not => Instruction::Not {
+            OPCODE_NOT => Instruction::Not {
                 dest: slice_bits(instruction, 11, 9),
                 source: slice_bits(instruction, 8, 6),
             },
-            Opcodes::Rti => Instruction::Rti,
-            Opcodes::St => Instruction::St {
+            OPCODE_RTI => Instruction::Rti,
+            OPCODE_ST => Instruction::St {
                 source: slice_bits(instruction, 11, 9),
                 pc_offset: sign_extend(slice_bits(instruction, 8, 0), 9),
             },
-            Opcodes::StI => Instruction::StI {
+            OPCODE_STI => Instruction::StI {
                 source: slice_bits(instruction, 11, 9),
                 pc_offset: sign_extend(slice_bits(instruction, 8, 0), 9),
             },
-            Opcodes::Str => Instruction::StR {
+            OPCODE_STR => Instruction::StR {
                 source: slice_bits(instruction, 11, 9),
                 base: slice_bits(instruction, 8, 6),
                 offset: sign_extend(slice_bits(instruction, 5, 0), 6),
             },
-            Opcodes::Trap => Instruction::Trap {
+            OPCODE_TRAP => Instruction::Trap {
                 vec: slice_bits(instruction, 7, 0),
             },
             _ => Instruction::Illegal,
@@ -219,7 +215,11 @@ impl Instruction {
     }
 }
 
-fn main() {}
+pub struct Machine {}
+
+impl Machine {
+    pub fn run(_instructions: Vec<Instruction>) {}
+}
 
 #[cfg(test)]
 mod tests {
