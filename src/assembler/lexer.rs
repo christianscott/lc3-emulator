@@ -13,6 +13,8 @@ pub enum Token {
 struct Reader {
     source: Vec<char>,
     offset: usize,
+    char_in_line: usize,
+    line: usize,
 }
 
 impl Reader {
@@ -20,6 +22,8 @@ impl Reader {
         Reader {
             source: source.chars().collect(),
             offset: 0,
+            char_in_line: 0,
+            line: 0,
         }
     }
 
@@ -34,6 +38,14 @@ impl Reader {
     fn next(&mut self) -> Option<char> {
         let c = self.peek();
         self.offset += 1;
+
+        if c.map_or(false, |c| c == '\n') {
+            self.line += 1;
+            self.char_in_line = 0;
+        } else {
+            self.char_in_line += 1;
+        }
+
         c
     }
 
@@ -124,7 +136,8 @@ impl Lexer {
             return Ok(Some(Token::Label(label)));
         }
 
-        Err(format!("unexpected char {}", c))
+        // TODO: make an errors package
+        Err(format!("unexpected char {}\n{}:{}", c, self.reader.line, self.reader.char_in_line))
     }
 }
 
