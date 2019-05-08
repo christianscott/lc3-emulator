@@ -39,7 +39,11 @@ impl Machine {
 
     fn execute(&mut self, instruction: Instruction) {
         match instruction {
-            Instruction::Add { dest, source_1, source_2, } => {
+            Instruction::Add {
+                dest,
+                source_1,
+                source_2,
+            } => {
                 let value = self.get_reg(source_1) + self.get_reg(source_2);
                 self.set_reg(dest, value);
             }
@@ -81,9 +85,14 @@ mod tests {
     #[test]
     fn test_run_machine() {
         let mut machine = from_regs([1, 2, 0, 0, 0, 0, 0, 0]);
-        run_instructions(&mut machine, vec![
-            Instruction::Add { dest: 0, source_1: 0, source_2: 1 },
-        ]);
+        run_instructions(
+            &mut machine,
+            vec![Instruction::Add {
+                dest: 0,
+                source_1: 0,
+                source_2: 1,
+            }],
+        );
         assert_eq!(machine.regs[0], 3);
     }
 

@@ -106,7 +106,7 @@ fn is_bit_set(instruction: u16, bit: u16) -> bool {
 }
 
 fn sign_extend(n: u16, size: u16) -> u16 {
-   if is_bit_set(n, size - 1) {
+    if is_bit_set(n, size - 1) {
         n | (0b1111_1111_1111_1111 ^ ((1 << size) - 1))
     } else {
         n
@@ -319,7 +319,9 @@ mod tests {
 
         assert_eq!(
             Instruction::from(0b0100_1_01000000001),
-            Instruction::Jsr { pc_offset: 0b1000000001 },
+            Instruction::Jsr {
+                pc_offset: 0b1000000001
+            },
         );
 
         assert_eq!(
@@ -329,12 +331,18 @@ mod tests {
 
         assert_eq!(
             Instruction::from(0b0010_010_010000001),
-            Instruction::Ld { dest: 0b010, pc_offset: 0b10000001 },
+            Instruction::Ld {
+                dest: 0b010,
+                pc_offset: 0b10000001
+            },
         );
 
         assert_eq!(
             Instruction::from(0b1010_010_010000001),
-            Instruction::LdI { dest: 0b010, pc_offset: 0b10000001 },
+            Instruction::LdI {
+                dest: 0b010,
+                pc_offset: 0b10000001
+            },
         );
 
         assert_eq!(
@@ -362,10 +370,7 @@ mod tests {
             },
         );
 
-        assert_eq!(
-            Instruction::from(0b1000_000000000000),
-            Instruction::Rti,
-        );
+        assert_eq!(Instruction::from(0b1000_000000000000), Instruction::Rti,);
 
         assert_eq!(
             Instruction::from(0b0011_010_100000000),
@@ -394,9 +399,7 @@ mod tests {
 
         assert_eq!(
             Instruction::from(0b1111_0000_1111_1111),
-            Instruction::Trap {
-                vec: 0b1111_1111,
-            },
+            Instruction::Trap { vec: 0b1111_1111 },
         );
     }
 }

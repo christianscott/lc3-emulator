@@ -89,9 +89,11 @@ impl Lexer {
         loop {
             match self.reader.peek() {
                 None => break,
-                Some(c) => if let Some(token) = self.lex_char(c)? {
-                    tokens.push(token);
-                },
+                Some(c) => {
+                    if let Some(token) = self.lex_char(c)? {
+                        tokens.push(token);
+                    }
+                }
             }
         }
 
@@ -137,7 +139,10 @@ impl Lexer {
         }
 
         // TODO: make an errors package
-        Err(format!("unexpected char {}\n{}:{}", c, self.reader.line, self.reader.char_in_line))
+        Err(format!(
+            "unexpected char {}\n{}:{}",
+            c, self.reader.line, self.reader.char_in_line
+        ))
     }
 }
 
@@ -192,10 +197,7 @@ mod tests {
         assert_eq!(lex(".directive"), Ok(vec![directive("directive")]));
         assert_eq!(lex("    .directive"), Ok(vec![directive("directive")]));
         assert_eq!(lex("\n.directive"), Ok(vec![directive("directive")]));
-        assert_eq!(
-            lex(".d1\n.d2"),
-            Ok(vec![directive("d1"), directive("d2")])
-        );
+        assert_eq!(lex(".d1\n.d2"), Ok(vec![directive("d1"), directive("d2")]));
     }
 
     #[test]
