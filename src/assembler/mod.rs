@@ -5,9 +5,9 @@ pub struct Executable {
     pub instructions: Vec<u16>,
 }
 
-pub(crate) fn assemble(source: &str) -> Executable {
-    let _tokens = parser::parse(source);
-    Default::default()
+pub(crate) fn assemble(source: &str) -> Result<Executable, String> {
+    let _tokens = parser::parse(source)?;
+    Ok(Default::default())
 }
 
 #[cfg(test)]
@@ -18,9 +18,9 @@ mod tests {
     fn test_assemble_empty() {
         assert_eq!(
             assemble(""),
-            Executable {
+            Ok(Executable {
                 instructions: Vec::new()
-            }
+            })
         );
     }
 }
