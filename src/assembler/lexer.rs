@@ -61,30 +61,23 @@ impl Reader {
     }
 }
 
-#[derive(PartialEq)]
-enum ParserContext {
-    TopLevel,
-}
-
-struct Parser {
+struct Lexer {
     reader: Reader,
-    context: ParserContext,
 }
 
-impl Parser {
+impl Lexer {
     fn from(source: &str) -> Self {
         Self {
             reader: Reader::from(source),
-            context: ParserContext::TopLevel,
         }
     }
 
-    fn parse(&mut self) -> Result<Vec<Token>, String> {
+    fn lex(&mut self) -> Result<Vec<Token>, String> {
         let mut tokens = Vec::new();
         loop {
             match self.reader.peek() {
                 None => break,
-                Some(c) => if let Some(token) = self.parse_char(c)? {
+                Some(c) => if let Some(token) = self.lex_char(c)? {
                     tokens.push(token);
                 },
             }
@@ -93,13 +86,7 @@ impl Parser {
         Ok(tokens)
     }
 
-    fn parse_char(&mut self, c: char) -> Result<Option<Token>, String> {
-        match self.context {
-            ParserContext::TopLevel => self.parse_top_level_char(c),
-        }
-    }
-
-    fn parse_top_level_char(&mut self, c: char) -> Result<Option<Token>, String> {
+    fn lex_char(&mut self, c: char) -> Result<Option<Token>, String> {
         if c.is_whitespace() {
             self.reader.skip_while(|c| c.is_whitespace());
             return Ok(None);
@@ -141,8 +128,8 @@ impl Parser {
     }
 }
 
-pub fn parse(source: &str) -> Result<Vec<Token>, String> {
-    Parser::from(source).parse()
+pub fn lex(source: &str) -> Result<Vec<Token>, String> {
+    Lexer::from(source).lex()
 }
 
 #[cfg(test)]
@@ -163,18 +150,18 @@ mod tests {
 
     #[test]
     fn test_ignores_whitespace() {
-        assert_eq!(parse(" \n\r\t"), Ok(vec![]));
+        assert_eq!(lex(" \n\r\t"), Ok(vec![]));
     }
 
     #[test]
     fn test_ignores_comments() {
-        assert_eq!(parse("; this is a comment"), Ok(vec![]));
+        assert_eq!(lex("; this is a comment"), Ok(vec![]));
         assert_eq!(
-            parse(".directive ; this is a comment"),
+            lex(".directive ; this is a comment"),
             Ok(vec![directive("directive")])
         );
         assert_eq!(
-            parse(".label\n ; this is a comment"),
+            lex(".label\n ; this is a comment"),
             Ok(vec![directive("label")])
         );
     }
@@ -182,34 +169,34 @@ mod tests {
     #[test]
     fn test_continues_after_comments() {
         assert_eq!(
-            parse("; this is a comment\n.directive"),
+            lex("; this is a comment\n.directive"),
             Ok(vec![directive("directive")])
         );
     }
 
     #[test]
-    fn test_parse_directive() {
-        assert_eq!(parse(".directive"), Ok(vec![directive("directive")]));
-        assert_eq!(parse("    .directive"), Ok(vec![directive("directive")]));
-        assert_eq!(parse("\n.directive"), Ok(vec![directive("directive")]));
+    fn test_lex_directive() {
+        assert_eq!(lex(".directive"), Ok(vec![directive("directive")]));
+        assert_eq!(lex("    .directive"), Ok(vec![directive("directive")]));
+        assert_eq!(lex("\n.directive"), Ok(vec![directive("directive")]));
         assert_eq!(
-            parse(".d1\n.d2"),
+            lex(".d1\n.d2"),
             Ok(vec![directive("d1"), directive("d2")])
         );
     }
 
     #[test]
-    fn test_parse_label() {
-        assert_eq!(parse("label"), Ok(vec![label("label")]));
-        assert_eq!(parse("l1\nl2"), Ok(vec![label("l1"), label("l2")]));
+    fn test_lex_label() {
+        assert_eq!(lex("label"), Ok(vec![label("label")]));
+        assert_eq!(lex("l1\nl2"), Ok(vec![label("l1"), label("l2")]));
     }
 
     #[test]
-    fn test_parse_hex() {
-        assert_eq!(parse("x0"), Ok(vec![number(0)]));
-        assert_eq!(parse("xFFFF"), Ok(vec![number(0xFFFF)]));
+    fn test_lex_hex() {
+        assert_eq!(lex("x0"), Ok(vec![number(0)]));
+        assert_eq!(lex("xFFFF"), Ok(vec![number(0xFFFF)]));
         assert_eq!(
-            parse("xG"),
+            lex("xG"),
             Err(String::from(
                 "invalid hex literal 'xG': invalid digit found in string"
             ))
@@ -217,11 +204,11 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_decimal() {
-        assert_eq!(parse("#0"), Ok(vec![number(0)]));
-        assert_eq!(parse("#1000"), Ok(vec![number(1000)]));
+    fn test_lex_decimal() {
+        assert_eq!(lex("#0"), Ok(vec![number(0)]));
+        assert_eq!(lex("#1000"), Ok(vec![number(1000)]));
         assert_eq!(
-            parse("#G"),
+            lex("#G"),
             Err(String::from(
                 "invalid decimal literal '#G': invalid digit found in string"
             ))
@@ -231,11 +218,11 @@ mod tests {
     #[test]
     fn test_real_asm() {
         assert_eq!(
-            parse(".orig x3000"),
+            lex(".orig x3000"),
             Ok(vec![directive("orig"), number(0x3000)])
         );
         assert_eq!(
-            parse("	.FILL BAD_INT	; x01"),
+            lex("	.FILL BAD_INT	; x01"),
             Ok(vec![directive("FILL"), label("BAD_INT")])
         );
     }
