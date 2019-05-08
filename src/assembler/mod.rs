@@ -1,4 +1,5 @@
 mod lexer;
+mod parser;
 
 #[derive(Debug, Default, PartialEq)]
 pub struct Executable {
@@ -6,7 +7,8 @@ pub struct Executable {
 }
 
 pub(crate) fn assemble(source: &str) -> Result<Executable, String> {
-    let _tokens = lexer::lex(source)?;
+    let tokens = lexer::lex(source)?;
+    let _parse_tree = parser::parse(tokens)?;
     Ok(Default::default())
 }
 
