@@ -15,7 +15,7 @@ struct Reader {
     offset: usize,
 }
 
-impl<'a> Reader {
+impl Reader {
     fn from(source: &str) -> Self {
         Reader {
             source: source.chars().collect(),
@@ -61,61 +61,88 @@ impl<'a> Reader {
     }
 }
 
-pub fn parse(source: &str) -> Result<Vec<Token>, String> {
-    let mut reader = Reader::from(source);
-    let mut tokens = Vec::new();
+#[derive(PartialEq)]
+enum ParserContext {
+    TopLevel,
+}
 
-    loop {
-        match reader.peek() {
-            None => break,
-            Some(c) => {
-                if c.is_whitespace() {
-                    reader.skip_while(|c| c.is_whitespace());
-                    continue;
-                }
+struct Parser {
+    reader: Reader,
+    context: ParserContext,
+}
 
-                if c == ';' {
-                    reader.skip_while(|c| c != '\n');
-                    continue;
-                }
-
-                if c == 'x' {
-                    reader.next();
-                    let hex = reader.take_while(|c| c.is_alphanumeric());
-                    let num = u16::from_str_radix(&hex, 16)
-                        .map_err(|e| format!("invalid hex literal 'x{}': {}", hex, e))?;
-                    tokens.push(Token::Number(num));
-                    continue;
-                }
-
-                if c == '#' {
-                    reader.next();
-                    let hex = reader.take_while(|c| c.is_alphanumeric());
-                    let num = u16::from_str_radix(&hex, 10)
-                        .map_err(|e| format!("invalid decimal literal '#{}': {}", hex, e))?;
-                    tokens.push(Token::Number(num));
-                    continue;
-                }
-
-                if c == '.' {
-                    reader.next();
-                    let directive = reader.take_while(|c| c.is_alphanumeric());
-                    tokens.push(Token::Directive(directive));
-                    continue;
-                }
-
-                if c.is_alphabetic() {
-                    let label = reader.take_while(|c| c.is_alphanumeric() || c == '_');
-                    tokens.push(Token::Label(label));
-                    continue;
-                }
-
-                panic!("not implemented: {}", c);
-            }
+impl Parser {
+    fn from(source: &str) -> Self {
+        Self {
+            reader: Reader::from(source),
+            context: ParserContext::TopLevel,
         }
     }
 
-    Ok(tokens)
+    fn parse(&mut self) -> Result<Vec<Token>, String> {
+        let mut tokens = Vec::new();
+        loop {
+            match self.reader.peek() {
+                None => break,
+                Some(c) => if let Some(token) = self.parse_char(c)? {
+                    tokens.push(token);
+                },
+            }
+        }
+
+        Ok(tokens)
+    }
+
+    fn parse_char(&mut self, c: char) -> Result<Option<Token>, String> {
+        match self.context {
+            ParserContext::TopLevel => self.parse_top_level_char(c),
+        }
+    }
+
+    fn parse_top_level_char(&mut self, c: char) -> Result<Option<Token>, String> {
+        if c.is_whitespace() {
+            self.reader.skip_while(|c| c.is_whitespace());
+            return Ok(None);
+        }
+
+        if c == ';' {
+            self.reader.skip_while(|c| c != '\n');
+            return Ok(None);
+        }
+
+        if c == 'x' {
+            self.reader.next();
+            let hex = self.reader.take_while(|c| c.is_alphanumeric());
+            let num = u16::from_str_radix(&hex, 16)
+                .map_err(|e| format!("invalid hex literal 'x{}': {}", hex, e))?;
+            return Ok(Some(Token::Number(num)));
+        }
+
+        if c == '#' {
+            self.reader.next();
+            let hex = self.reader.take_while(|c| c.is_alphanumeric());
+            let num = u16::from_str_radix(&hex, 10)
+                .map_err(|e| format!("invalid decimal literal '#{}': {}", hex, e))?;
+            return Ok(Some(Token::Number(num)));
+        }
+
+        if c == '.' {
+            self.reader.next();
+            let directive = self.reader.take_while(|c| c.is_alphanumeric());
+            return Ok(Some(Token::Directive(directive)));
+        }
+
+        if c.is_alphabetic() {
+            let label = self.reader.take_while(|c| c.is_alphanumeric() || c == '_');
+            return Ok(Some(Token::Label(label)));
+        }
+
+        Err(format!("unexpected char {}", c))
+    }
+}
+
+pub fn parse(source: &str) -> Result<Vec<Token>, String> {
+    Parser::from(source).parse()
 }
 
 #[cfg(test)]
