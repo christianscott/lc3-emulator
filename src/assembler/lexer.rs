@@ -10,39 +10,28 @@ pub struct LexError {
 
 impl LexError {
     pub fn pretty(self, filename: &str, source: &str) -> String {
-        for (line_number, line) in source.lines().enumerate() {
-            if line_number == self.line {
-                let line_indicator = format!("{} | ", self.line);
-                let marker_line = format!(
-                    "{:width$}^ {}",
-                    "",
-                    self.message,
-                    width = line_indicator.len() + self.character + 1
-                );
-                return format!(
-                    "{}:{}:{}\n\nlex error: {}\n{}{}\n{}",
-                    filename,
-                    self.line,
-                    self.character,
-                    self.message,
-                    line_indicator,
-                    line,
-                    marker_line
-                );
-            }
-        }
-
-        format!("{}", self.message)
+        let line = source.lines().nth(self.line).unwrap();
+        let line_indicator = format!("{} | ", self.line);
+        let marker_line = format!(
+            "{:width$}^ {}",
+            "",
+            self.message,
+            width = line_indicator.len() + self.character + 1
+        );
+        format!(
+            "{}:{}:{}\n\nlex error: {}\n{}{}\n{}",
+            filename, self.line, self.character, self.message, line_indicator, line, marker_line
+        )
     }
 }
 
 #[derive(Debug, PartialEq)]
 pub enum Token {
     Directive(String),
-    Label(String),
+    Symbol(String),
     Number(u16),
-    // Opcode(String),
-    // Str(String),
+    Comma,
+    Str(String),
 }
 
 #[derive(Debug)]
@@ -157,10 +146,16 @@ impl Lexer {
 
         if c == '#' {
             self.reader.next();
-            let hex = self.reader.take_while(char::is_alphanumeric);
-            let num = u16::from_str_radix(&hex, 10)
-                .map_err(|e| self.error(format!("invalid decimal literal '#{}': {}", hex, e)))?;
-            return Ok(Some(Token::Number(num)));
+            return Ok(Some(self.lex_decimal()?));
+        }
+
+        if c.is_numeric() || c == '-' {
+            return Ok(Some(self.lex_decimal()?));
+        }
+
+        if c == ',' {
+            self.reader.next();
+            return Ok(Some(Token::Comma));
         }
 
         if c == '.' {
@@ -169,17 +164,45 @@ impl Lexer {
             return Ok(Some(Token::Directive(directive)));
         }
 
+        if c == '"' {
+            self.reader.next();
+            let string = self.reader.take_while(|c| c != '"');
+            self.reader.next();
+            return Ok(Some(Token::Str(string)));
+        }
+
         if c.is_alphabetic() {
-            let label = self.reader.take_while(|c| c.is_alphanumeric() || c == '_');
-            return Ok(Some(Token::Label(label)));
+            let symbol = self.reader.take_while(|c| c.is_alphanumeric() || c == '_');
+            return Ok(Some(Token::Symbol(symbol)));
         }
 
         Err(self.error(format!("unexpected char {}", c)))
     }
 
+    fn lex_decimal(&mut self) -> Result<Token, LexError> {
+        let negative = if self.reader.peek().map_or(false, |c| c == '-') {
+            self.reader.next();
+            true
+        } else {
+            false
+        };
+
+        let dec = self.reader.take_while(char::is_alphanumeric);
+        let num = u16::from_str_radix(&dec, 10)
+            .map(|num| {
+                if negative {
+                    !(num - 1) // two's complement representation
+                } else {
+                    num
+                }
+            })
+            .map_err(|e| self.error(format!("invalid decimal literal '{}': {}", dec, e)))?;
+        Ok(Token::Number(num))
+    }
+
     fn error(&self, message: String) -> LexError {
         LexError {
-            message: message,
+            message,
             line: self.reader.line,
             character: self.reader.char_in_line - 1,
         }
@@ -198,12 +221,16 @@ mod tests {
         Token::Directive(string.to_string())
     }
 
-    fn label(string: &str) -> Token {
-        Token::Label(string.to_string())
+    fn symbol(string: &str) -> Token {
+        Token::Symbol(string.to_string())
     }
 
     fn number(number: u16) -> Token {
         Token::Number(number)
+    }
+
+    fn str(string: &str) -> Token {
+        Token::Str(string.to_string())
     }
 
     #[test]
@@ -241,9 +268,9 @@ mod tests {
     }
 
     #[test]
-    fn test_lex_label() {
-        assert_eq!(lex("label"), Ok(vec![label("label")]));
-        assert_eq!(lex("l1\nl2"), Ok(vec![label("l1"), label("l2")]));
+    fn test_lex_symbol() {
+        assert_eq!(lex("sym"), Ok(vec![symbol("sym")]));
+        assert_eq!(lex("s1\ns2"), Ok(vec![symbol("s1"), symbol("s2")]));
     }
 
     #[test]
@@ -264,14 +291,20 @@ mod tests {
     fn test_lex_decimal() {
         assert_eq!(lex("#0"), Ok(vec![number(0)]));
         assert_eq!(lex("#1000"), Ok(vec![number(1000)]));
+        assert_eq!(lex("#-1"), Ok(vec![number(0b1111_1111_1111_1111)]));
         assert_eq!(
             lex("#G"),
             Err(LexError {
-                message: "invalid decimal literal '#G': invalid digit found in string".to_string(),
+                message: "invalid decimal literal 'G': invalid digit found in string".to_string(),
                 line: 0,
                 character: 1,
             })
         );
+    }
+
+    #[test]
+    fn test_lex_strings() {
+        assert_eq!(lex("\"hello\""), Ok(vec![str("hello")]));
     }
 
     #[test]
@@ -282,7 +315,20 @@ mod tests {
         );
         assert_eq!(
             lex("	.FILL BAD_INT	; x01"),
-            Ok(vec![directive("FILL"), label("BAD_INT")])
+            Ok(vec![directive("FILL"), symbol("BAD_INT")])
+        );
+        assert_eq!(
+            lex("LD R0, MPR_INIT"),
+            Ok(vec![
+                symbol("LD"),
+                symbol("R0"),
+                Token::Comma,
+                symbol("MPR_INIT")
+            ])
+        );
+        assert_eq!(
+            lex("mystring .STRINGZ \"hello\""),
+            Ok(vec![symbol("mystring"), directive("STRINGZ"), str("hello")])
         );
     }
 }
