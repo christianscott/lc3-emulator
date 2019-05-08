@@ -20,7 +20,13 @@ impl LexError {
         );
         format!(
             "{}:{}:{}\n\nlex error: {}\n{}{}\n{}",
-            filename, self.line, self.character, self.message, line_indicator, line, marker_line
+            filename,
+            self.line,
+            self.character,
+            self.message,
+            line_indicator,
+            line.replace('\t', " "),
+            marker_line
         )
     }
 }
