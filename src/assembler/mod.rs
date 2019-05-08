@@ -6,8 +6,8 @@ pub struct Executable {
     pub instructions: Vec<u16>,
 }
 
-pub(crate) fn assemble(source: &str) -> Result<Executable, String> {
-    let tokens = lexer::lex(source)?;
+pub(crate) fn assemble(filename: &str, source: &str) -> Result<Executable, String> {
+    let tokens = lexer::lex(source).map_err(|err| err.pretty(filename, source))?;
     parser::parse(tokens)?;
     Ok(Default::default())
 }
@@ -19,7 +19,7 @@ mod tests {
     #[test]
     fn test_assemble_empty() {
         assert_eq!(
-            assemble(""),
+            assemble("empty.asm", ""),
             Ok(Executable {
                 instructions: Vec::new()
             })

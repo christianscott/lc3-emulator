@@ -2,6 +2,41 @@ use std::borrow::ToOwned;
 use std::u16;
 
 #[derive(Debug, PartialEq)]
+pub struct LexError {
+    pub message: String,
+    pub line: usize,
+    pub character: usize,
+}
+
+impl LexError {
+    pub fn pretty(self, filename: &str, source: &str) -> String {
+        for (line_number, line) in source.lines().enumerate() {
+            if line_number == self.line {
+                let line_indicator = format!("{} | ", self.line);
+                let marker_line = format!(
+                    "{:width$}^ {}",
+                    "",
+                    self.message,
+                    width = line_indicator.len() + self.character + 1
+                );
+                return format!(
+                    "{}:{}:{}\n\nlex error: {}\n{}{}\n{}",
+                    filename,
+                    self.line,
+                    self.character,
+                    self.message,
+                    line_indicator,
+                    line,
+                    marker_line
+                );
+            }
+        }
+
+        format!("{}", self.message)
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub enum Token {
     Directive(String),
     Label(String),
@@ -85,7 +120,7 @@ impl Lexer {
         }
     }
 
-    fn lex(&mut self) -> Result<Vec<Token>, String> {
+    fn lex(&mut self) -> Result<Vec<Token>, LexError> {
         let mut tokens = Vec::new();
         loop {
             match self.reader.peek() {
@@ -101,7 +136,7 @@ impl Lexer {
         Ok(tokens)
     }
 
-    fn lex_char(&mut self, c: char) -> Result<Option<Token>, String> {
+    fn lex_char(&mut self, c: char) -> Result<Option<Token>, LexError> {
         if c.is_whitespace() {
             self.reader.skip_while(char::is_whitespace);
             return Ok(None);
@@ -116,7 +151,7 @@ impl Lexer {
             self.reader.next();
             let hex = self.reader.take_while(char::is_alphanumeric);
             let num = u16::from_str_radix(&hex, 16)
-                .map_err(|e| format!("invalid hex literal 'x{}': {}", hex, e))?;
+                .map_err(|e| self.error(format!("invalid hex literal 'x{}': {}", hex, e)))?;
             return Ok(Some(Token::Number(num)));
         }
 
@@ -124,7 +159,7 @@ impl Lexer {
             self.reader.next();
             let hex = self.reader.take_while(char::is_alphanumeric);
             let num = u16::from_str_radix(&hex, 10)
-                .map_err(|e| format!("invalid decimal literal '#{}': {}", hex, e))?;
+                .map_err(|e| self.error(format!("invalid decimal literal '#{}': {}", hex, e)))?;
             return Ok(Some(Token::Number(num)));
         }
 
@@ -139,15 +174,19 @@ impl Lexer {
             return Ok(Some(Token::Label(label)));
         }
 
-        // TODO: make an errors package
-        Err(format!(
-            "unexpected char {}\n{}:{}",
-            c, self.reader.line, self.reader.char_in_line
-        ))
+        Err(self.error(format!("unexpected char {}", c)))
+    }
+
+    fn error(&self, message: String) -> LexError {
+        LexError {
+            message: message,
+            line: self.reader.line,
+            character: self.reader.char_in_line - 1,
+        }
     }
 }
 
-pub fn lex(source: &str) -> Result<Vec<Token>, String> {
+pub fn lex(source: &str) -> Result<Vec<Token>, LexError> {
     Lexer::from(source).lex()
 }
 
@@ -213,9 +252,11 @@ mod tests {
         assert_eq!(lex("xFFFF"), Ok(vec![number(0xFFFF)]));
         assert_eq!(
             lex("xG"),
-            Err(String::from(
-                "invalid hex literal 'xG': invalid digit found in string"
-            ))
+            Err(LexError {
+                message: "invalid hex literal 'xG': invalid digit found in string".to_string(),
+                line: 0,
+                character: 1,
+            })
         );
     }
 
@@ -225,9 +266,11 @@ mod tests {
         assert_eq!(lex("#1000"), Ok(vec![number(1000)]));
         assert_eq!(
             lex("#G"),
-            Err(String::from(
-                "invalid decimal literal '#G': invalid digit found in string"
-            ))
+            Err(LexError {
+                message: "invalid decimal literal '#G': invalid digit found in string".to_string(),
+                line: 0,
+                character: 1,
+            })
         );
     }
 
