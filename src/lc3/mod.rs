@@ -2,6 +2,7 @@ use self::instructions::Instruction;
 
 mod instructions;
 
+#[allow(dead_code)]
 pub struct Machine {
     /// addressable memory from 0x0000 -> 0xFFFF
     memory: [u16; 0xFFFF],
@@ -38,16 +39,14 @@ impl Machine {
     }
 
     fn execute(&mut self, instruction: Instruction) {
-        match instruction {
-            Instruction::Add {
-                dest,
-                source_1,
-                source_2,
-            } => {
-                let value = self.get_reg(source_1) + self.get_reg(source_2);
-                self.set_reg(dest, value);
-            }
-            _ => {}
+        if let Instruction::Add {
+            dest,
+            source_1,
+            source_2,
+        } = instruction
+        {
+            let value = self.get_reg(source_1) + self.get_reg(source_2);
+            self.set_reg(dest, value);
         }
     }
 

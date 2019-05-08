@@ -1,3 +1,4 @@
+use std::borrow::ToOwned;
 use std::u16;
 
 #[derive(Debug, PartialEq)]
@@ -28,7 +29,7 @@ impl Reader {
     }
 
     fn get(&self, index: usize) -> Option<char> {
-        self.source.get(index).map(|c| c.to_owned())
+        self.source.get(index).map(ToOwned::to_owned)
     }
 
     fn peek(&self) -> Option<char> {
@@ -49,21 +50,21 @@ impl Reader {
         c
     }
 
-    fn skip_while<F>(&mut self, predicate: F)
+    fn skip_while<F: Copy>(&mut self, predicate: F)
     where
         F: Fn(char) -> bool,
     {
-        while self.peek().map_or(false, |c| predicate(c)) {
+        while self.peek().map_or(false, predicate) {
             self.next();
         }
     }
 
-    fn take_while<F>(&mut self, predicate: F) -> String
+    fn take_while<F: Copy>(&mut self, predicate: F) -> String
     where
         F: Fn(char) -> bool,
     {
         let mut chars = Vec::new();
-        while self.peek().map_or(false, |c| predicate(c)) {
+        while self.peek().map_or(false, predicate) {
             match self.next() {
                 Some(c) => chars.push(c),
                 None => break,
@@ -102,7 +103,7 @@ impl Lexer {
 
     fn lex_char(&mut self, c: char) -> Result<Option<Token>, String> {
         if c.is_whitespace() {
-            self.reader.skip_while(|c| c.is_whitespace());
+            self.reader.skip_while(char::is_whitespace);
             return Ok(None);
         }
 
@@ -113,7 +114,7 @@ impl Lexer {
 
         if c == 'x' {
             self.reader.next();
-            let hex = self.reader.take_while(|c| c.is_alphanumeric());
+            let hex = self.reader.take_while(char::is_alphanumeric);
             let num = u16::from_str_radix(&hex, 16)
                 .map_err(|e| format!("invalid hex literal 'x{}': {}", hex, e))?;
             return Ok(Some(Token::Number(num)));
@@ -121,7 +122,7 @@ impl Lexer {
 
         if c == '#' {
             self.reader.next();
-            let hex = self.reader.take_while(|c| c.is_alphanumeric());
+            let hex = self.reader.take_while(char::is_alphanumeric);
             let num = u16::from_str_radix(&hex, 10)
                 .map_err(|e| format!("invalid decimal literal '#{}': {}", hex, e))?;
             return Ok(Some(Token::Number(num)));
@@ -129,7 +130,7 @@ impl Lexer {
 
         if c == '.' {
             self.reader.next();
-            let directive = self.reader.take_while(|c| c.is_alphanumeric());
+            let directive = self.reader.take_while(char::is_alphanumeric);
             return Ok(Some(Token::Directive(directive)));
         }
 

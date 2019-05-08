@@ -8,7 +8,7 @@ pub struct Executable {
 
 pub(crate) fn assemble(source: &str) -> Result<Executable, String> {
     let tokens = lexer::lex(source)?;
-    let _parse_tree = parser::parse(tokens)?;
+    parser::parse(tokens)?;
     Ok(Default::default())
 }
 
