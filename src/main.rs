@@ -7,7 +7,7 @@ mod lc3;
 fn main() {
     match run() {
         Err(err) => println!("failed to run: {}", err),
-        _ => {},
+        _ => {}
     }
 }
 
