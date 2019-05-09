@@ -2,6 +2,7 @@ use std::env;
 use std::fs;
 
 mod assembler;
+mod instructions;
 mod lc3;
 
 fn main() {

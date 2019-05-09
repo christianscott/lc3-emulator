@@ -1,13 +1,14 @@
-use super::lexer::Token;
+use crate::{assembler::lexer::Token, instructions::Instruction};
 
 enum ParseState {
     Initial,
 }
 
-pub fn parse(tokens: Vec<Token>) -> Result<(), String> {
+pub fn parse(tokens: Vec<Token>) -> Result<Vec<Instruction>, String> {
     let _state = ParseState::Initial;
     for _token in tokens {}
-    Ok(())
+
+    Ok(Default::default())
 }
 
 #[cfg(test)]
