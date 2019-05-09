@@ -1,6 +1,4 @@
-mod instructions;
-
-use instructions::Instruction;
+use crate::instructions::Instruction;
 
 #[allow(dead_code)]
 pub struct Machine {
