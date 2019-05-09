@@ -1,4 +1,4 @@
-use crate::assembler::lexer::Token;
+use super::lexer::Token;
 
 enum ParseState {
     Initial,

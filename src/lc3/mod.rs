@@ -1,6 +1,6 @@
-use self::instructions::Instruction;
-
 mod instructions;
+
+use instructions::Instruction;
 
 #[allow(dead_code)]
 pub struct Machine {
@@ -62,7 +62,7 @@ impl Machine {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{Instruction, Machine};
 
     fn run_instructions(machine: &mut Machine, instructions: Vec<Instruction>) {
         for instruction in instructions {

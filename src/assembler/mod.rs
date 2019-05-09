@@ -6,7 +6,7 @@ pub struct Executable {
     pub instructions: Vec<u16>,
 }
 
-pub(crate) fn assemble(filename: &str, source: &str) -> Result<Executable, String> {
+pub fn assemble(filename: &str, source: &str) -> Result<Executable, String> {
     let tokens = lexer::lex(source).map_err(|err| err.pretty(filename, source))?;
     parser::parse(tokens)?;
     Ok(Default::default())
