@@ -38,6 +38,7 @@ pub enum Token {
     Number(u16),
     Comma,
     Str(String),
+    Newline,
 }
 
 #[derive(Debug)]
@@ -132,6 +133,11 @@ impl Lexer {
     }
 
     fn lex_char(&mut self, c: char) -> Result<Option<Token>, LexError> {
+        if c == '\n' {
+            self.reader.next();
+            return Ok(Some(Token::Newline));
+        }
+
         if c.is_whitespace() {
             self.reader.skip_while(char::is_whitespace);
             return Ok(None);
@@ -253,7 +259,7 @@ mod tests {
         );
         assert_eq!(
             lex(".label\n ; this is a comment"),
-            Ok(vec![directive("label")])
+            Ok(vec![directive("label"), Token::Newline])
         );
     }
 
@@ -261,7 +267,7 @@ mod tests {
     fn test_continues_after_comments() {
         assert_eq!(
             lex("; this is a comment\n.directive"),
-            Ok(vec![directive("directive")])
+            Ok(vec![Token::Newline, directive("directive")])
         );
     }
 
@@ -269,14 +275,23 @@ mod tests {
     fn test_lex_directive() {
         assert_eq!(lex(".directive"), Ok(vec![directive("directive")]));
         assert_eq!(lex("    .directive"), Ok(vec![directive("directive")]));
-        assert_eq!(lex("\n.directive"), Ok(vec![directive("directive")]));
-        assert_eq!(lex(".d1\n.d2"), Ok(vec![directive("d1"), directive("d2")]));
+        assert_eq!(
+            lex("\n.directive"),
+            Ok(vec![Token::Newline, directive("directive")])
+        );
+        assert_eq!(
+            lex(".d1\n.d2"),
+            Ok(vec![directive("d1"), Token::Newline, directive("d2")])
+        );
     }
 
     #[test]
     fn test_lex_symbol() {
         assert_eq!(lex("sym"), Ok(vec![symbol("sym")]));
-        assert_eq!(lex("s1\ns2"), Ok(vec![symbol("s1"), symbol("s2")]));
+        assert_eq!(
+            lex("s1\ns2"),
+            Ok(vec![symbol("s1"), Token::Newline, symbol("s2")])
+        );
     }
 
     #[test]
