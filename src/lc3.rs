@@ -49,10 +49,8 @@ impl Machine {
     }
 
     pub fn run(&mut self, instructions: &[u16]) {
-        let instructions = instructions
-            .iter()
-            .map(|instruction| Instruction::from(*instruction));
         for instruction in instructions {
+            let instruction = Instruction::from(*instruction);
             self.execute(instruction);
         }
     }
