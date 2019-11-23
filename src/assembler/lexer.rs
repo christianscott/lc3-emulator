@@ -32,13 +32,50 @@ impl LexError {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum Token {
+pub enum TokenKind {
     Directive(String),
     Symbol(String),
     Number(u16),
     Comma,
     Str(String),
     Newline,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Token {
+    pub kind: TokenKind,
+    pub offset: usize,
+}
+
+#[allow(dead_code)]
+impl Token {
+    pub fn new(kind: TokenKind, offset: usize) -> Token {
+        Token { kind, offset }
+    }
+
+    pub fn directive(string: &str, offset: usize) -> Token {
+        Token::new(TokenKind::Directive(string.to_string()), offset)
+    }
+
+    pub fn symbol(string: &str, offset: usize) -> Token {
+        Token::new(TokenKind::Symbol(string.to_string()), offset)
+    }
+
+    pub fn number(number: u16, offset: usize) -> Token {
+        Token::new(TokenKind::Number(number), offset)
+    }
+
+    pub fn str(string: &str, offset: usize) -> Token {
+        Token::new(TokenKind::Str(string.to_string()), offset)
+    }
+
+    pub fn newline(offset: usize) -> Token {
+        Token::new(TokenKind::Newline, offset)
+    }
+
+    pub fn comma(offset: usize) -> Token {
+        Token::new(TokenKind::Comma, offset)
+    }
 }
 
 #[derive(Debug)]
@@ -134,8 +171,13 @@ impl Lexer {
 
     fn lex_char(&mut self, c: char) -> Result<Option<Token>, LexError> {
         if c == '\n' {
+            let offset = self.reader.offset;
             self.reader.next();
-            return Ok(Some(Token::Newline));
+            let token = Token {
+                kind: TokenKind::Newline,
+                offset,
+            };
+            return Ok(Some(token));
         }
 
         if c.is_whitespace() {
@@ -149,49 +191,79 @@ impl Lexer {
         }
 
         if c == 'x' {
+            let offset = self.reader.offset;
             self.reader.next();
+
             let hex = self.reader.take_while(char::is_alphanumeric);
             let num = u16::from_str_radix(&hex, 16)
                 .map_err(|e| self.error(format!("invalid hex literal 'x{}': {}", hex, e)))?;
-            return Ok(Some(Token::Number(num)));
+
+            let token = Token {
+                kind: TokenKind::Number(num),
+                offset,
+            };
+
+            return Ok(Some(token));
         }
 
         if c == '#' {
+            let offset = self.reader.offset;
             self.reader.next();
-            return Ok(Some(self.lex_decimal()?));
+            return Ok(Some(self.lex_decimal(offset)?));
         }
 
         if c.is_numeric() || c == '-' {
-            return Ok(Some(self.lex_decimal()?));
+            let offset = self.reader.offset;
+            return Ok(Some(self.lex_decimal(offset)?));
         }
 
         if c == ',' {
+            let offset = self.reader.offset;
             self.reader.next();
-            return Ok(Some(Token::Comma));
+            let token = Token {
+                kind: TokenKind::Comma,
+                offset,
+            };
+            return Ok(Some(token));
         }
 
         if c == '.' {
+            let offset = self.reader.offset;
             self.reader.next();
             let directive = self.reader.take_while(char::is_alphanumeric);
-            return Ok(Some(Token::Directive(directive)));
+            let token = Token {
+                kind: TokenKind::Directive(directive),
+                offset,
+            };
+            return Ok(Some(token));
         }
 
         if c == '"' {
+            let offset = self.reader.offset;
             self.reader.next();
             let string = self.reader.take_while(|c| c != '"');
             self.reader.next();
-            return Ok(Some(Token::Str(string)));
+            let token = Token {
+                kind: TokenKind::Str(string),
+                offset,
+            };
+            return Ok(Some(token));
         }
 
         if c.is_alphabetic() {
+            let offset = self.reader.offset;
             let symbol = self.reader.take_while(|c| c.is_alphanumeric() || c == '_');
-            return Ok(Some(Token::Symbol(symbol)));
+            let token = Token {
+                kind: TokenKind::Symbol(symbol),
+                offset,
+            };
+            return Ok(Some(token));
         }
 
         Err(self.error(format!("unexpected char {}", c)))
     }
 
-    fn lex_decimal(&mut self) -> Result<Token, LexError> {
+    fn lex_decimal(&mut self, offset: usize) -> Result<Token, LexError> {
         let negative = if self.reader.peek().map_or(false, |c| c == '-') {
             self.reader.next(); // skip the sign
             true
@@ -209,7 +281,11 @@ impl Lexer {
                 }
             })
             .map_err(|e| self.error(format!("invalid decimal literal '{}': {}", dec, e)))?;
-        Ok(Token::Number(num))
+        let token = Token {
+            kind: TokenKind::Number(num),
+            offset,
+        };
+        Ok(token)
     }
 
     fn error(&self, message: String) -> LexError {
@@ -234,22 +310,6 @@ pub fn lex(source: &str) -> Result<Vec<Token>, LexError> {
 mod tests {
     use super::*;
 
-    fn directive(string: &str) -> Token {
-        Token::Directive(string.to_string())
-    }
-
-    fn symbol(string: &str) -> Token {
-        Token::Symbol(string.to_string())
-    }
-
-    fn number(number: u16) -> Token {
-        Token::Number(number)
-    }
-
-    fn str(string: &str) -> Token {
-        Token::Str(string.to_string())
-    }
-
     #[test]
     fn test_ignores_whitespace() {
         assert_eq!(lex(" \n\r\t"), Ok(vec![]));
@@ -260,49 +320,63 @@ mod tests {
         assert_eq!(lex("; this is a comment"), Ok(vec![]));
         assert_eq!(
             lex(".directive ; this is a comment"),
-            Ok(vec![directive("directive")])
+            Ok(vec![Token::directive("directive", 0)])
         );
         assert_eq!(
             lex(".label\n ; this is a comment"),
-            Ok(vec![directive("label"), Token::Newline])
+            Ok(vec![Token::directive("label", 0), Token::newline(6)])
         );
     }
 
     #[test]
     fn test_continues_after_comments() {
         assert_eq!(
-            lex("; this is a comment\n.directive"),
-            Ok(vec![Token::Newline, directive("directive")])
+            lex("; a\n.directive"),
+            Ok(vec![Token::newline(3), Token::directive("directive", 4)])
         );
     }
 
     #[test]
     fn test_lex_directive() {
-        assert_eq!(lex(".directive"), Ok(vec![directive("directive")]));
-        assert_eq!(lex("    .directive"), Ok(vec![directive("directive")]));
+        assert_eq!(
+            lex(".directive"),
+            Ok(vec![Token::directive("directive", 0)])
+        );
+        assert_eq!(
+            lex("    .directive"),
+            Ok(vec![Token::directive("directive", 4)])
+        );
         assert_eq!(
             lex("\n.directive"),
-            Ok(vec![Token::Newline, directive("directive")])
+            Ok(vec![Token::newline(0), Token::directive("directive", 1)])
         );
         assert_eq!(
             lex(".d1\n.d2"),
-            Ok(vec![directive("d1"), Token::Newline, directive("d2")])
+            Ok(vec![
+                Token::directive("d1", 0),
+                Token::newline(3),
+                Token::directive("d2", 4)
+            ])
         );
     }
 
     #[test]
     fn test_lex_symbol() {
-        assert_eq!(lex("sym"), Ok(vec![symbol("sym")]));
+        assert_eq!(lex("sym"), Ok(vec![Token::symbol("sym", 0)]));
         assert_eq!(
             lex("s1\ns2"),
-            Ok(vec![symbol("s1"), Token::Newline, symbol("s2")])
+            Ok(vec![
+                Token::symbol("s1", 0),
+                Token::newline(2),
+                Token::symbol("s2", 3)
+            ])
         );
     }
 
     #[test]
     fn test_lex_hex() {
-        assert_eq!(lex("x0"), Ok(vec![number(0)]));
-        assert_eq!(lex("xFFFF"), Ok(vec![number(0xFFFF)]));
+        assert_eq!(lex("x0"), Ok(vec![Token::number(0, 0)]));
+        assert_eq!(lex("xFFFF"), Ok(vec![Token::number(0xFFFF, 0)]));
         assert_eq!(
             lex("xG"),
             Err(LexError {
@@ -315,9 +389,12 @@ mod tests {
 
     #[test]
     fn test_lex_decimal() {
-        assert_eq!(lex("#0"), Ok(vec![number(0)]));
-        assert_eq!(lex("#1000"), Ok(vec![number(1000)]));
-        assert_eq!(lex("#-1"), Ok(vec![number(0b1111_1111_1111_1111)]));
+        assert_eq!(lex("#0"), Ok(vec![Token::number(0, 0)]));
+        assert_eq!(lex("#1000"), Ok(vec![Token::number(1000, 0)]));
+        assert_eq!(
+            lex("#-1"),
+            Ok(vec![Token::number(0b1111_1111_1111_1111, 0)])
+        );
         assert_eq!(
             lex("#G"),
             Err(LexError {
@@ -330,31 +407,38 @@ mod tests {
 
     #[test]
     fn test_lex_strings() {
-        assert_eq!(lex("\"hello\""), Ok(vec![str("hello")]));
+        assert_eq!(lex("\"hello\""), Ok(vec![Token::str("hello", 0)]));
     }
 
     #[test]
     fn test_real_asm() {
         assert_eq!(
             lex(".orig x3000"),
-            Ok(vec![directive("orig"), number(0x3000)])
+            Ok(vec![Token::directive("orig", 0), Token::number(0x3000, 6)])
         );
         assert_eq!(
             lex("	.FILL BAD_INT	; x01"),
-            Ok(vec![directive("FILL"), symbol("BAD_INT")])
+            Ok(vec![
+                Token::directive("FILL", 1),
+                Token::symbol("BAD_INT", 7)
+            ])
         );
         assert_eq!(
             lex("LD R0, MPR_INIT"),
             Ok(vec![
-                symbol("LD"),
-                symbol("R0"),
-                Token::Comma,
-                symbol("MPR_INIT")
+                Token::symbol("LD", 0),
+                Token::symbol("R0", 3),
+                Token::comma(5),
+                Token::symbol("MPR_INIT", 7)
             ])
         );
         assert_eq!(
             lex("mystring .STRINGZ \"hello\""),
-            Ok(vec![symbol("mystring"), directive("STRINGZ"), str("hello")])
+            Ok(vec![
+                Token::symbol("mystring", 0),
+                Token::directive("STRINGZ", 9),
+                Token::str("hello", 18)
+            ])
         );
     }
 }
