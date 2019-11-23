@@ -260,7 +260,7 @@
 
 ; the interrupt vector table
 ; interrupts are not currently implemented
-        .FILL BAD_INT	; x00
+    .FILL BAD_INT	; x00
 	.FILL BAD_INT	; x01
 	.FILL BAD_INT	; x02
 	.FILL BAD_INT	; x03
