@@ -31,7 +31,7 @@ impl LexError {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Token {
     Directive(String),
     Symbol(String),
@@ -81,18 +81,18 @@ impl Reader {
         c
     }
 
-    fn skip_while<F: Copy>(&mut self, predicate: F)
+    fn skip_while<F>(&mut self, predicate: F)
     where
-        F: Fn(char) -> bool,
+        F: Fn(char) -> bool + Copy,
     {
         while self.peek().map_or(false, predicate) {
             self.next();
         }
     }
 
-    fn take_while<F: Copy>(&mut self, predicate: F) -> String
+    fn take_while<F>(&mut self, predicate: F) -> String
     where
-        F: Fn(char) -> bool,
+        F: Fn(char) -> bool + Copy,
     {
         let mut chars = Vec::new();
         while self.peek().map_or(false, predicate) {
@@ -193,7 +193,7 @@ impl Lexer {
 
     fn lex_decimal(&mut self) -> Result<Token, LexError> {
         let negative = if self.reader.peek().map_or(false, |c| c == '-') {
-            self.reader.next();
+            self.reader.next(); // skip the sign
             true
         } else {
             false
@@ -203,7 +203,7 @@ impl Lexer {
         let num = u16::from_str_radix(&dec, 10)
             .map(|num| {
                 if negative {
-                    !(num - 1) // two's complement representation
+                    flip_sign_twos_complement(num)
                 } else {
                     num
                 }
@@ -219,6 +219,11 @@ impl Lexer {
             character: self.reader.char_in_line - 1,
         }
     }
+}
+
+/// flip the sign of an unsigned integer
+fn flip_sign_twos_complement(n: u16) -> u16 {
+    !(n - 1)
 }
 
 pub fn lex(source: &str) -> Result<Vec<Token>, LexError> {
