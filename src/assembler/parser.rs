@@ -1,4 +1,4 @@
-use crate::assembler::lexer::Token::{self, *};
+use crate::assembler::lexer::{Token, TokenKind};
 
 #[derive(Debug, PartialEq)]
 pub struct ParseError {
@@ -15,16 +15,17 @@ impl ParseError {
 struct Reader {
 	tokens: Vec<Token>,
 	offset: usize,
-	char_in_line: usize,
+	token_in_line: usize,
 	line: usize,
 }
 
+#[allow(dead_code)]
 impl Reader {
 	fn from(tokens: Vec<Token>) -> Self {
 		Reader {
 			tokens,
 			offset: 0,
-			char_in_line: 0,
+			token_in_line: 0,
 			line: 0,
 		}
 	}
@@ -41,11 +42,11 @@ impl Reader {
 		let c = self.peek();
 		self.offset += 1;
 
-		if c.clone().map_or(false, |c| c == Newline) {
+		if c.clone().map_or(false, |c| c.kind == TokenKind::Newline) {
 			self.line += 1;
-			self.char_in_line = 0;
+			self.token_in_line = 0;
 		} else {
-			self.char_in_line += 1;
+			self.token_in_line += 1;
 		}
 
 		c
@@ -87,16 +88,16 @@ impl Parser {
 			reader: Reader::from(tokens),
 		};
 		while let Some(token) = parser.reader.next() {
-			match token {
-				Directive(directive) => {
+			match token.kind {
+				TokenKind::Directive(directive) => {
 					parser.parse_directive(&directive)?;
 					continue;
 				}
-				Symbol(_string) => continue,
-				Number(_num) => continue,
-				Comma => continue,
-				Str(_string) => continue,
-				Newline => continue,
+				TokenKind::Symbol(_string) => continue,
+				TokenKind::Number(_num) => continue,
+				TokenKind::Comma => continue,
+				TokenKind::Str(_string) => continue,
+				TokenKind::Newline => continue,
 			}
 		}
 
@@ -105,7 +106,9 @@ impl Parser {
 
 	fn parse_directive(&mut self, directive: &str) -> Result<(), ParseError> {
 		match directive.to_lowercase().as_ref() {
-			".fill" => {}
+			".fill" => {
+				let literal = self.expect_literal()?;
+			}
 			_ => {
 				return Err(ParseError {
 					message: format!("unrecognized directive: {}", directive),
@@ -114,6 +117,20 @@ impl Parser {
 		}
 
 		Ok(())
+	}
+
+	fn expect_literal(&mut self) -> Result<Token, ParseError> {
+		match self.reader.next() {
+			Some(token) => match token.kind {
+				TokenKind::Number(_) | TokenKind::Str(_) => Ok(token),
+				_ => Err(ParseError {
+					message: String::from("expected a literal"),
+				}),
+			},
+			None => Err(ParseError {
+				message: String::from("unexpected end of input"),
+			}),
+		}
 	}
 }
 
@@ -125,17 +142,43 @@ pub fn parse(tokens: Vec<Token>) -> Result<Vec<u16>, ParseError> {
 mod tests {
 	use super::*;
 
-	fn directive(d: &str) -> Token {
-		Directive(String::from(d))
-	}
-
 	#[test]
 	fn test_bad_directive() {
 		assert_eq!(
-			parse(vec![directive(".bad")]),
+			parse(vec![Token::directive(".bad", 0)]),
 			Err(ParseError {
 				message: String::from("unrecognized directive: .bad")
 			}),
 		);
+	}
+
+	#[test]
+	fn fill_with_literal() {
+		assert_eq!(
+			parse(vec![Token::directive(".fill", 0), Token::number(10, 0)]), //
+			Ok(vec![])                                                       //
+		);
+		assert_eq!(
+			parse(vec![Token::directive(".fill", 0), Token::str("hey", 0)]), //
+			Ok(vec![])                                                       //
+		);
+	}
+
+	#[test]
+	fn fill_without_literal() {
+		assert_eq!(
+			parse(vec![Token::directive(".fill", 0), Token::number(10, 0)]),
+			Ok(vec![])
+		)
+	}
+
+	#[test]
+	fn fill_without_next_token() {
+		assert_eq!(
+			parse(vec![Token::directive(".fill", 0)]),
+			Err(ParseError {
+				message: String::from("unexpected end of input"),
+			})
+		)
 	}
 }
