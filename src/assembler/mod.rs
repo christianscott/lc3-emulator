@@ -8,8 +8,8 @@ pub struct Executable {
 
 pub fn assemble(filename: &str, source: &str) -> Result<Executable, String> {
     let tokens = lexer::lex(source).map_err(|err| err.pretty(filename, source))?;
-    parser::parse(tokens)?;
-    Ok(Default::default())
+    let instructions = parser::parse(tokens).map_err(|err| err.pretty())?;
+    Ok(Executable { instructions })
 }
 
 #[cfg(test)]
