@@ -90,5 +90,4 @@ mod tests {
         );
         assert_eq!(machine.regs[0], 3);
     }
-
 }
