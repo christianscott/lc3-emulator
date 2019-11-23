@@ -37,7 +37,7 @@
 	.FILL TRAP_OUT	; x21
 	.FILL TRAP_PUTS	; x22
 	.FILL TRAP_IN	; x23
-	.FILL TRAP_PUTSP ; x24        
+	.FILL TRAP_PUTSP ; x24
 	.FILL TRAP_HALT	; x25
 	.FILL BAD_TRAP	; x26
 	.FILL BAD_TRAP	; x27
@@ -551,7 +551,7 @@ OS_SAVE_R6      .BLKW 1
 OS_SAVE_R7      .BLKW 1
 OS_OUT_SAVE_R1  .BLKW 1
 OS_IN_SAVE_R7   .BLKW 1
-                	
+
 MASK_HI         .FILL x7FFF
 LOW_8_BITS      .FILL x00FF
 TIM_INIT        .FILL #40
@@ -559,7 +559,7 @@ TIM_INIT        .FILL #40
 MPR_INIT	.FILL x0FF8	; user can access x3000 to xbfff
 USER_CODE_ADDR	.FILL x3000	; user code starts at x3000
 
-        
+
 ;;; GETC - Read a single character of input from keyboard device into R0
 TRAP_GETC
 	LDI R0,OS_KBSR		; wait for a keystroke
@@ -567,7 +567,7 @@ TRAP_GETC
 	LDI R0,OS_KBDR		; read it and return
 	RET
 
-        
+
 ;;; OUT - Write the character in R0 to the console.
 TRAP_OUT
 	ST R1,OS_OUT_SAVE_R1	; save R1
@@ -578,9 +578,9 @@ TRAP_OUT_WAIT
 	LD R1,OS_OUT_SAVE_R1	; restore R1
 	RET
 
-                
+
 ;;; PUTS - Write a NUL-terminated string of characters to the console,
-;;; starting from the address in R0.	
+;;; starting from the address in R0.
 TRAP_PUTS
 	ST R0,OS_SAVE_R0	; save R0, R1, and R7
 	ST R1,OS_SAVE_R1
@@ -601,9 +601,9 @@ TRAP_PUTS_DONE
 	RET
 
 ;;; IN - prompt the user for a single character input, which is stored
-;;; in R0 and also echoed to the console.        
+;;; in R0 and also echoed to the console.
 TRAP_IN
-	ST R7,OS_IN_SAVE_R7	; save R7 (no need to save R0, since we 
+	ST R7,OS_IN_SAVE_R7	; save R7 (no need to save R0, since we
 				;    overwrite later
 	LEA R0,TRAP_IN_MSG	; prompt for input
 	PUTS
@@ -666,22 +666,22 @@ TRAP_PUTSP_DONE
 	LD R7,OS_SAVE_R7
 	RET
 
-        
+
 ;;; HALT - trap handler for halting machine
-TRAP_HALT	
-	LDI R0,OS_MCR		
+TRAP_HALT
+	LDI R0,OS_MCR
 	LD R1,MASK_HI           ; clear run bit in MCR
 	AND R0,R0,R1
 	STI R0,OS_MCR		; halt!
 	BRnzp OS_START		; restart machine
 
-        
+
 ;;; BAD_TRAP - code to execute for undefined trap
 BAD_TRAP
 	BRnzp TRAP_HALT		; execute HALT
 
 
-;;; BAD_INT - code to execute for undefined interrupt. There won't 
+;;; BAD_INT - code to execute for undefined interrupt. There won't
 ;;; actually be any interrupts, so this will never actually get called.
 BAD_INT		RTI
 
