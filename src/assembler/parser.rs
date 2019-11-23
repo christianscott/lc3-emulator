@@ -27,6 +27,7 @@ impl Parser {
 				Number(_num) => continue,
 				Comma => continue,
 				Str(_string) => continue,
+				Newline => continue,
 			}
 		}
 
