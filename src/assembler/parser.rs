@@ -81,6 +81,11 @@ impl Parser {
                 let orig = self.expect_number()?;
                 self.orig = Some(orig);
             }
+            "end" => {
+                // stop parsing by moving to end of reader
+                // TODO: fix this awful hack
+                self.reader.offset = std::usize::MAX;
+            }
             _ => {
                 return Err(ParseError {
                     message: format!("unrecognized directive: {}", directive),
@@ -218,5 +223,19 @@ mod tests {
         let mut parser = Parser::new(vec![Token::directive("orig", 0), Token::number(0x3000, 0)]);
         assert_eq!(parser.parse(), Ok(vec![]));
         assert_eq!(parser.orig, Some(0x3000));
+    }
+
+    #[test]
+    fn stop_parsing_after_end() {
+        assert_eq!(
+            parse(vec![
+                Token::directive("fill", 0),
+                Token::number(0, 0),
+                Token::directive("end", 0),
+                Token::directive("stringz", 0),
+                Token::str("hey", 0),
+            ]),
+            Ok(vec![0])
+        );
     }
 }

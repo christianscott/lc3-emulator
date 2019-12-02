@@ -34,16 +34,20 @@ impl<T: Clone> Reader<T> {
 
     pub(crate) fn next(&mut self) -> Option<T> {
         let c = self.peek();
-        self.offset += 1;
 
-        if c.clone().map_or(false, self.is_newline) {
-            self.line += 1;
-            self.item_in_line = 0;
+        if let Some(c) = c {
+            if (self.is_newline)(c.clone()) {
+                self.line += 1;
+                self.item_in_line = 0;
+            } else {
+                self.item_in_line += 1;
+            }
+
+            self.offset += 1;
+            Some(c)
         } else {
-            self.item_in_line += 1;
+            None
         }
-
-        c
     }
 
     pub(crate) fn skip_while<F>(&mut self, predicate: F)
