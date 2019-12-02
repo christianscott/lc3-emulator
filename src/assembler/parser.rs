@@ -74,8 +74,19 @@ impl Parser {
                 self.instructions.push(num);
             }
             "stringz" => {
-                let null_terminated_string = self.expect_string()?;
-                self.instructions.extend(null_terminated_string);
+                let string = self.expect_string()?;
+
+                let mut null_terminated_chars = Vec::new();
+                null_terminated_chars.extend(string.chars().map(|c| c as u16));
+                // null-terminate the string
+                null_terminated_chars.push(0);
+
+                self.instructions.extend(null_terminated_chars);
+            }
+            "blkw" => {
+                let num_reserved_slots = self.expect_number()?;
+                let reserved = vec![0; num_reserved_slots as usize];
+                self.instructions.extend(reserved);
             }
             "orig" => {
                 let orig = self.expect_number()?;
@@ -111,20 +122,12 @@ impl Parser {
         }
     }
 
-    fn expect_string(&mut self) -> Result<Vec<u16>, ParseError> {
+    fn expect_string(&mut self) -> Result<String, ParseError> {
         match self.reader.next() {
             Some(Token {
                 kind: TokenKind::Str(string),
                 ..
-            }) => {
-                let mut characters = Vec::new();
-
-                characters.extend(string.chars().map(|c| c as u16));
-                // null-terminate the string
-                characters.push(0);
-
-                Ok(characters)
-            }
+            }) => Ok(string),
             Some(_) => Err(ParseError {
                 message: String::from("expected a string literal"),
             }),
@@ -236,6 +239,14 @@ mod tests {
                 Token::str("hey", 0),
             ]),
             Ok(vec![0])
+        );
+    }
+
+    #[test]
+    fn blkw() {
+        assert_eq!(
+            parse(vec![Token::directive("blkw", 0), Token::number(10, 0),]),
+            Ok(vec![0; 10])
         );
     }
 }
