@@ -537,7 +537,7 @@ OS_KBDR	.FILL xFE02		; keyboard data register
 OS_DSR	.FILL xFE04		; display status register
 OS_DDR	.FILL xFE06		; display data register
 OS_TR	.FILL xFE08		; timer register
-OS_TMI  .FILL xFE0A             ; timer interval register
+OS_TMI  .FILL xFE0A     ; timer interval register
 OS_MPR	.FILL xFE12		; memory protection register
 OS_MCR	.FILL xFFFE		; machine control register
 
