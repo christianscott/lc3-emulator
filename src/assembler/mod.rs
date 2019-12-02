@@ -1,5 +1,6 @@
 mod lexer;
 mod parser;
+mod reader;
 
 #[derive(Debug, Default, PartialEq)]
 pub struct Executable {

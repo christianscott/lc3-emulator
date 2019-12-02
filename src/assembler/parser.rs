@@ -1,4 +1,6 @@
 use crate::assembler::lexer::{Token, TokenKind};
+
+use super::reader::Reader;
 use std::collections::HashMap;
 use std::iter::Extend;
 
@@ -13,88 +15,17 @@ impl ParseError {
     }
 }
 
-#[derive(Debug)]
-struct Reader {
-    tokens: Vec<Token>,
-    offset: usize,
-    token_in_line: usize,
-    line: usize,
-}
-
-#[allow(dead_code)]
-impl Reader {
-    fn from(tokens: Vec<Token>) -> Self {
-        Reader {
-            tokens,
-            offset: 0,
-            token_in_line: 0,
-            line: 0,
-        }
-    }
-
-    fn reset(&mut self) {
-        self.offset = 0;
-        self.token_in_line = 0;
-        self.line = 0;
-    }
-
-    fn get(&self, index: usize) -> Option<Token> {
-        self.tokens.get(index).map(ToOwned::to_owned)
-    }
-
-    fn peek(&self) -> Option<Token> {
-        self.get(self.offset)
-    }
-
-    fn next(&mut self) -> Option<Token> {
-        let c = self.peek();
-        self.offset += 1;
-
-        if c.clone().map_or(false, |c| c.kind == TokenKind::Newline) {
-            self.line += 1;
-            self.token_in_line = 0;
-        } else {
-            self.token_in_line += 1;
-        }
-
-        c
-    }
-
-    fn skip_while<F>(&mut self, predicate: F)
-    where
-        F: Fn(Token) -> bool + Copy,
-    {
-        while self.peek().map_or(false, predicate) {
-            self.next();
-        }
-    }
-
-    fn take_while<F>(&mut self, predicate: F) -> Vec<Token>
-    where
-        F: Fn(Token) -> bool + Copy,
-    {
-        let mut chars = Vec::new();
-        while self.peek().map_or(false, predicate) {
-            match self.next() {
-                Some(c) => chars.push(c),
-                None => break,
-            }
-        }
-        chars.iter().map(ToOwned::to_owned).collect()
-    }
-}
-
 type Instruction = u16;
 
 struct Parser {
-    reader: Reader,
+    reader: Reader<Token>,
     labels: HashMap<String, usize>,
 }
 
 impl Parser {
     fn parse(tokens: Vec<Token>) -> Result<Vec<Instruction>, ParseError> {
         let mut parser = Parser {
-            reader: Reader::from(tokens),
+            reader: Reader::from(tokens, |t| t.kind == TokenKind::Newline),
             labels: HashMap::new(),
         };
         parser.find_labels();
@@ -122,7 +53,7 @@ impl Parser {
             if let TokenKind::Symbol(label) = token.kind {
                 // if a symbol is at position 0 in the line, it's a label
                 // rather than reference to a label
-                if self.reader.token_in_line == 0 {
+                if self.reader.item_in_line == 0 {
                     self.labels.insert(label, self.reader.line);
                 }
             }

@@ -1,4 +1,4 @@
-use std::borrow::ToOwned;
+use super::reader::Reader;
 use std::u16;
 
 #[derive(Debug, PartialEq)]
@@ -78,78 +78,14 @@ impl Token {
     }
 }
 
-#[derive(Debug)]
-struct Reader {
-    source: Vec<char>,
-    offset: usize,
-    char_in_line: usize,
-    line: usize,
-}
-
-impl Reader {
-    fn from(source: &str) -> Self {
-        Reader {
-            source: source.chars().collect(),
-            offset: 0,
-            char_in_line: 0,
-            line: 0,
-        }
-    }
-
-    fn get(&self, index: usize) -> Option<char> {
-        self.source.get(index).map(ToOwned::to_owned)
-    }
-
-    fn peek(&self) -> Option<char> {
-        self.get(self.offset)
-    }
-
-    fn next(&mut self) -> Option<char> {
-        let c = self.peek();
-        self.offset += 1;
-
-        if c.map_or(false, |c| c == '\n') {
-            self.line += 1;
-            self.char_in_line = 0;
-        } else {
-            self.char_in_line += 1;
-        }
-
-        c
-    }
-
-    fn skip_while<F>(&mut self, predicate: F)
-    where
-        F: Fn(char) -> bool + Copy,
-    {
-        while self.peek().map_or(false, predicate) {
-            self.next();
-        }
-    }
-
-    fn take_while<F>(&mut self, predicate: F) -> String
-    where
-        F: Fn(char) -> bool + Copy,
-    {
-        let mut chars = Vec::new();
-        while self.peek().map_or(false, predicate) {
-            match self.next() {
-                Some(c) => chars.push(c),
-                None => break,
-            }
-        }
-        chars.iter().collect()
-    }
-}
-
 struct Lexer {
-    reader: Reader,
+    reader: Reader<char>,
 }
 
 impl Lexer {
     fn from(source: &str) -> Self {
         Self {
-            reader: Reader::from(source),
+            reader: Reader::from(source.chars().collect(), |c| c == '\n'),
         }
     }
 
@@ -167,6 +103,13 @@ impl Lexer {
         }
 
         Ok(tokens)
+    }
+
+    pub(crate) fn take_while<F>(&mut self, predicate: F) -> String
+    where
+        F: Fn(char) -> bool + Copy,
+    {
+        self.reader.take_while(predicate).iter().collect()
     }
 
     fn lex_char(&mut self, c: char) -> Result<Option<Token>, LexError> {
@@ -194,7 +137,7 @@ impl Lexer {
             let offset = self.reader.offset;
             self.reader.next();
 
-            let hex = self.reader.take_while(char::is_alphanumeric);
+            let hex: String = self.take_while(char::is_alphanumeric);
             let num = u16::from_str_radix(&hex, 16)
                 .map_err(|e| self.error(format!("invalid hex literal 'x{}': {}", hex, e)))?;
 
@@ -230,7 +173,7 @@ impl Lexer {
         if c == '.' {
             let offset = self.reader.offset;
             self.reader.next();
-            let directive = self.reader.take_while(char::is_alphanumeric);
+            let directive = self.take_while(char::is_alphanumeric);
             let token = Token {
                 kind: TokenKind::Directive(directive),
                 offset,
@@ -241,7 +184,7 @@ impl Lexer {
         if c == '"' {
             let offset = self.reader.offset;
             self.reader.next();
-            let string = self.reader.take_while(|c| c != '"');
+            let string = self.take_while(|c| c != '"');
             self.reader.next();
             let token = Token {
                 kind: TokenKind::Str(string),
@@ -252,7 +195,7 @@ impl Lexer {
 
         if c.is_alphabetic() {
             let offset = self.reader.offset;
-            let symbol = self.reader.take_while(|c| c.is_alphanumeric() || c == '_');
+            let symbol = self.take_while(|c| c.is_alphanumeric() || c == '_');
             let token = Token {
                 kind: TokenKind::Symbol(symbol),
                 offset,
@@ -271,7 +214,7 @@ impl Lexer {
             false
         };
 
-        let dec = self.reader.take_while(char::is_alphanumeric);
+        let dec = self.take_while(char::is_alphanumeric);
         let num = u16::from_str_radix(&dec, 10)
             .map(|num| {
                 if negative {
@@ -292,7 +235,7 @@ impl Lexer {
         LexError {
             message,
             line: self.reader.line,
-            character: self.reader.char_in_line - 1,
+            character: self.reader.item_in_line - 1,
         }
     }
 }
