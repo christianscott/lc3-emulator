@@ -20,21 +20,27 @@ type Instruction = u16;
 struct Parser {
     reader: Reader<Token>,
     labels: HashMap<String, usize>,
+    orig: Option<u16>,
+    instructions: Vec<Instruction>,
 }
 
 impl Parser {
-    fn parse(tokens: Vec<Token>) -> Result<Vec<Instruction>, ParseError> {
-        let mut parser = Parser {
+    fn new(tokens: Vec<Token>) -> Self {
+        Parser {
             reader: Reader::from(tokens, |t| t.kind == TokenKind::Newline),
             labels: HashMap::new(),
-        };
-        parser.find_labels();
+            instructions: Vec::new(),
+            orig: None,
+        }
+    }
 
-        let mut instructions = vec![];
-        while let Some(token) = parser.reader.next() {
+    fn parse(&mut self) -> Result<Vec<Instruction>, ParseError> {
+        self.find_labels();
+
+        while let Some(token) = self.reader.next() {
             match token.kind {
                 TokenKind::Directive(directive) => {
-                    instructions.extend(parser.parse_directive(&directive)?);
+                    self.parse_directive(&directive)?;
                     continue;
                 }
                 TokenKind::Symbol(_string) => continue,
@@ -45,7 +51,7 @@ impl Parser {
             }
         }
 
-        Ok(instructions)
+        Ok(self.instructions.clone())
     }
 
     fn find_labels(&mut self) {
@@ -61,16 +67,28 @@ impl Parser {
         self.reader.reset();
     }
 
-    fn parse_directive(&mut self, directive: &str) -> Result<Vec<Instruction>, ParseError> {
+    fn parse_directive(&mut self, directive: &str) -> Result<(), ParseError> {
         match directive.to_lowercase().as_ref() {
-            "fill" => Ok(vec![self.expect_number()?]),
-            "stringz" => Ok(self.expect_string()?),
+            "fill" => {
+                let num = self.expect_number()?;
+                self.instructions.push(num);
+            }
+            "stringz" => {
+                let null_terminated_string = self.expect_string()?;
+                self.instructions.extend(null_terminated_string);
+            }
+            "orig" => {
+                let orig = self.expect_number()?;
+                self.orig = Some(orig);
+            }
             _ => {
                 return Err(ParseError {
                     message: format!("unrecognized directive: {}", directive),
                 })
             }
         }
+
+        Ok(())
     }
 
     fn expect_number(&mut self) -> Result<u16, ParseError> {
@@ -113,7 +131,7 @@ impl Parser {
 }
 
 pub fn parse(tokens: Vec<Token>) -> Result<Vec<u16>, ParseError> {
-    Parser::parse(tokens)
+    Parser::new(tokens).parse()
 }
 
 #[cfg(test)]
@@ -183,5 +201,22 @@ mod tests {
                 message: String::from("expected a string literal")
             })
         )
+    }
+
+    #[test]
+    fn stringz_without_next_token() {
+        assert_eq!(
+            parse(vec![Token::directive("stringz", 0)]),
+            Err(ParseError {
+                message: String::from("unexpected end of input")
+            })
+        )
+    }
+
+    #[test]
+    fn orig() {
+        let mut parser = Parser::new(vec![Token::directive("orig", 0), Token::number(0x3000, 0)]);
+        assert_eq!(parser.parse(), Ok(vec![]));
+        assert_eq!(parser.orig, Some(0x3000));
     }
 }
